@@ -1,9 +1,11 @@
+import time
+
 class Estado:
     cadena = ''
+
     def __init__(self, cadena):
         self.cadena = cadena
-    def valida(self):
-        pass
+
     def swap(self, p1, p2):
         hijo = list(self.cadena[:])
         aux = hijo[p1]
@@ -12,10 +14,13 @@ class Estado:
         hijostring = "".join(hijo)
         h1 = Estado(hijostring)
         return h1
+
     def __str__(self):
-        return self.cadena[:3]+'\n'+self.cadena[3:6]+'\n'+self.cadena[6:9]+'\n'+self.cadena[9:]+'\n'
+        return self.cadena[:3] + '\n' + self.cadena[3:6] + '\n' + self.cadena[6:9] + '\n' + self.cadena[9:] + '\n'
+
     def __eq__(self, other):
         return self.cadena == other.cadena
+
     def hijos(self):
         i = 0
         ret = []
@@ -48,31 +53,63 @@ class Estado:
             i += 1
         return ret
 
-def bfs(e_inicial):
-    por_visitar = []
-    visitados = {}
 
-    por_visitar.append((e_inicial,0))
-    e = e_inicial
-    e_final = Estado('123456789AB0')
-    while e != e_final:
-        if not por_visitar:  # Verificar si por_visitar está vacío
-            break
-        e, padre = por_visitar.pop(0)
-        if e.cadena not in visitados:
-            visitados[e.cadena] = padre
-            for v in e.hijos():
-                por_visitar.append((v,e.cadena))
-    ruta = []
-    if e == e_final:  # Añadir solo si encontramos la solución
-        padre = visitados[e.cadena]
-        while padre != 0:
-            ruta.append(padre)
-            padre = visitados[padre]
-    return ruta
+def bfs(e_inicial, e_final):
+    por_visitar_inicial = [(e_inicial, 0)]
+    por_visitar_final = [(e_final, 11)]
+    visitados_inicial = {}
+    visitados_final = {}
 
-# Press the green button in the gutter to run the script.
+    while por_visitar_inicial and por_visitar_final:
+        if bfs_visit(visitados_inicial, por_visitar_inicial, visitados_final):
+            ruta = reconstruct_path(visitados_inicial, visitados_final)
+            if ruta is not None:
+                return ruta
+        if bfs_visit(visitados_final, por_visitar_final, visitados_inicial):
+            ruta = reconstruct_path(visitados_inicial, visitados_final)
+            if ruta is not None:
+                return ruta
+
+    return None
+
+
+def bfs_visit(visitados, por_visitar, otro_visitados):
+    e, padre = por_visitar.pop(0)
+    if e.cadena in visitados:
+        return False
+    visitados[e.cadena] = padre
+    for v in e.hijos():
+        if v.cadena in otro_visitados:
+            return True
+        por_visitar.append((v, e.cadena))
+    return False
+
+
+def reconstruct_path(visitados_inicial, visitados_final):
+    ruta_inicial = []
+    ruta_final = []
+    for key in visitados_inicial.keys():
+        if key in visitados_final:
+            padre = visitados_inicial[key]
+            while padre != 0:
+                ruta_inicial.append(padre)
+                padre = visitados_inicial[padre]
+            padre = visitados_final[key]
+            while padre != 11:
+                ruta_final.append(padre)
+                padre = visitados_final[padre]
+            return ruta_inicial[::-1] + ruta_final  # Invertir la lista antes de retornarla
+    return None
+
 if __name__ == '__main__':
-    e = Estado('1A435B067892')  # Estado inicial modificado
-    ruta = bfs(e)
+    start_time = time.time()
+
+    e_inicial = Estado('035142A768B9')  # Estado inicial modificado
+    e_final = Estado('123456789AB0')
+    ruta = bfs(e_inicial, e_final)
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("Tiempo de ejecución:", execution_time, "segundos")
+
     print(ruta)

@@ -5,8 +5,8 @@ from tkinter import messagebox
 class Gato:
     def __init__(self):
         self.tablero = [' ']*9
-        self.jugador = 'X'
-        self.computadora = 'O'
+        self.jugador = 'O'
+        self.computadora = 'X'
         self.turno = self.jugador
 
     def imprimir_tablero(self):

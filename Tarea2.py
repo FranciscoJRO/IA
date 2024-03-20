@@ -1,12 +1,12 @@
 import time
-import heapq
-
 class Estado:
     cadena = ''
 
-    def __init__(self, cadena, g=0):
+    def __init__(self, cadena):
         self.cadena = cadena
-        self.g = g  # Costo acumulado desde el nodo inicial
+
+    def valida(self):
+        pass
 
     def swap(self, p1, p2):
         hijo = list(self.cadena[:])
@@ -22,22 +22,6 @@ class Estado:
 
     def __eq__(self, other):
         return self.cadena == other.cadena
-
-    def __lt__(self, other):
-        return self.g < other.g
-
-    def manhattan_distance(self, goal_state):
-        distance = 0
-        for i in range(12):
-            if self.cadena[i] != goal_state.cadena[i] and self.cadena[i] != 'A':
-                index_goal = goal_state.cadena.index(self.cadena[i])
-                x1, y1 = i // 3, i % 3
-                x2, y2 = index_goal // 3, index_goal % 3
-                distance += abs(x1 - x2) + abs(y1 - y2)
-        return distance
-
-    def f(self, goal_state):
-        return self.g + self.manhattan_distance(goal_state)
 
     def hijos(self):
         i = 0
@@ -71,41 +55,64 @@ class Estado:
             i += 1
         return ret
 
-def a_star(e_inicial, e_final):
-    visitados = set()
-    heap = []
-    heapq.heappush(heap, (e_inicial.f(e_final), e_inicial))
 
-    while heap:
-        _, estado_actual = heapq.heappop(heap)
+def bfs(e_inicial, e_final):
+    por_visitar_inicial = [(e_inicial, 0)]
+    por_visitar_final = [(e_final, 11)]
+    visitados_inicial = {}
+    visitados_final = {}
 
-        if estado_actual == e_final:
-            return estado_actual
-
-        if estado_actual.cadena in visitados:
-            continue
-
-        visitados.add(estado_actual.cadena)
-
-        for hijo in estado_actual.hijos():
-            if hijo.cadena not in visitados:
-                hijo.g = estado_actual.g + 1
-                heapq.heappush(heap, (hijo.f(e_final), hijo))
+    while por_visitar_inicial and por_visitar_final:
+        if bfs_visit(visitados_inicial, por_visitar_inicial, visitados_final):
+            ruta = reconstruct_path(visitados_inicial, visitados_final)
+            if ruta is not None:
+                return ruta
+        if bfs_visit(visitados_final, por_visitar_final, visitados_inicial):
+            ruta = reconstruct_path(visitados_inicial, visitados_final)
+            if ruta is not None:
+                return ruta
 
     return None
+
+
+def bfs_visit(visitados, por_visitar, otro_visitados):
+    e, padre = por_visitar.pop(0)
+    if e.cadena in visitados:
+        return False
+    visitados[e.cadena] = padre
+    for v in e.hijos():
+        if v.cadena in otro_visitados:
+            return True
+        por_visitar.append((v, e.cadena))
+    return False
+
+
+def reconstruct_path(visitados_inicial, visitados_final):
+    ruta_inicial = []
+    ruta_final = []
+    for key in visitados_inicial.keys():
+        if key in visitados_final:
+            padre = visitados_inicial[key]
+            while padre != 0:
+                ruta_inicial.append(padre)
+                padre = visitados_inicial[padre]
+            padre = visitados_final[key]
+            while padre != 11:
+                ruta_final.append(padre)
+                padre = visitados_final[padre]
+            return ruta_inicial[::-1] + ruta_final  # Invertir la lista antes de retornarla
+    return None
+
 
 if __name__ == '__main__':
     start_time = time.time()
 
     e_inicial = Estado('035142A768B9')  # Estado inicial modificado
     e_final = Estado('123456789AB0')
-    resultado = a_star(e_inicial, e_final)
+    ruta = bfs(e_inicial, e_final)
 
     end_time = time.time()
     execution_time = end_time - start_time
     print("Tiempo de ejecución:", execution_time, "segundos")
 
-    if resultado:
-        print(resultado)
-    else:
-        print("No se encontró solución.")
+    print(ruta)
