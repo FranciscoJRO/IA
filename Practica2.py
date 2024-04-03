@@ -98,6 +98,7 @@ if __name__ == '__main__':
     start_time = time.time()
 
     e_inicial = Estado('123456709A8B')  # Estado inicial modificado
+    #0351420768BA
     e_final = Estado('123456789AB0')
     resultado = a_star(e_inicial, e_final)
 
