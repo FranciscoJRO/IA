@@ -1,41 +1,40 @@
-import ctypes  # No utilizado, se puede eliminar
 import random as rnd
-import struct  # No utilizado, se puede eliminar
 import socket
 
 class Conexion:
     def __init__(self):
-        # Configuración del servidor
-        HOST = socket.gethostname()
+        HOST = 'localhost'  # Cambia esto si estás usando una IP específica
         PORT = 65432  # Puerto para escuchar
 
-        # Inicialización del socket
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.bind((HOST, PORT))
         self.s.listen()
-
-        # Espera y acepta una conexión
+        print("El servidor está escuchando...")
         conn, addr = self.s.accept()
-        with conn:
-            print(f"Connected by {addr}")
-            e = Escenario()
-            print(e)
-            sense = e.sense()
-            conn.sendall(bytearray(sense.encode('utf-8')))
-            while sense != 'Perdiste':
-                data = conn.recv(1024).decode('utf-8')
-                print(data)
-                if not data:
-                    break
-                a = data.split(":")
-                if a[0] == 'Girar':
-                    dir = a[1]
-                    sense = e.accion(a[0], dir)
-                else:
-                    sense = e.accion(a[0])
+        print(f"Conectado por {addr}")
+        try:
+            with conn:
+                e = Escenario()
+                print(e)
+                sense = e.sense()
                 conn.sendall(bytearray(sense.encode('utf-8')))
-        self.s.close()
-        conn.close()
+                while sense != 'Perdiste':
+                    data = conn.recv(1024).decode('utf-8')
+                    print(f"Recibido: {data}")
+                    if not data:
+                        break
+                    a = data.split(":")
+                    if a[0] == 'Girar':
+                        dir = a[1]
+                        sense = e.accion(a[0], dir)
+                    else:
+                        sense = e.accion(a[0])
+                    conn.sendall(bytearray(sense.encode('utf-8')))
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            self.s.close()
+            conn.close()
 
 class Escenario:
     def __init__(self):
@@ -48,7 +47,7 @@ class Escenario:
             for j in range(4):
                 if rnd.uniform(0, 1) < 0.2:
                     self.pits.append((i + 1, j + 1))
-        self.player = ((1, 1, 'E'))
+        self.player = (1, 1, 'E')
 
     def __str__(self):
         escena = [''] * 16
@@ -91,28 +90,28 @@ class Escenario:
             else:
                 pos = self.player[0]
                 pos += 1
-                self.player = ((pos, self.player[1], dir))
+                self.player = (pos, self.player[1], dir)
         elif dir == 'O':
             if self.player[0] == 1:
                 estado = "Pum me pegue"
             else:
                 pos = self.player[0]
                 pos -= 1
-                self.player = ((pos, self.player[1], dir))
+                self.player = (pos, self.player[1], dir)
         elif dir == 'N':
             if self.player[1] == 4:
                 estado = "Pum me pegue"
             else:
                 pos = self.player[1]
                 pos += 1
-                self.player = ((self.player[0], pos, dir))
+                self.player = (self.player[0], pos, dir)
         elif dir == 'S':
             if self.player[1] == 1:
                 estado = "Pum me pegue"
             else:
                 pos = self.player[1]
                 pos -= 1
-                self.player = ((self.player[0], pos, dir))
+                self.player = (self.player[0], pos, dir)
         return estado
 
     def sense(self):
