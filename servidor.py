@@ -38,22 +38,35 @@ class Conexion:
 
 class Escenario:
     def __init__(self):
-        rnd.seed(3)
+        rnd.seed()  # Para asegurar que cada partida sea diferente, no establecer una semilla fija
         self.puntuacion = 0
-        self.wumpus = (rnd.randint(1, 4), rnd.randint(1, 4))
+        self.generar_tablero()
+
+    def generar_tablero(self):
+        # Genera posiciones aleatorias para el Wumpus, el oro y los pozos
+        self.wumpus = (rnd.randint(1, 4), rnd.randint(1, 4), True)
         self.gold = (rnd.randint(1, 4), rnd.randint(1, 4), False)
+        
+        # Asegura que el Wumpus y el oro no estén en la misma posición
+        while self.gold[:2] == self.wumpus[:2]:
+            self.gold = (rnd.randint(1, 4), rnd.randint(1, 4), False)
+        
         self.pits = []
-        for i in range(4):
-            for j in range(4):
-                if rnd.uniform(0, 1) < 0.2:
-                    self.pits.append((i + 1, j + 1))
+        for _ in range(4):
+            while True:
+                pit = (rnd.randint(1, 4), rnd.randint(1, 4))
+                if pit != self.wumpus[:2] and pit != self.gold[:2] and pit not in self.pits:
+                    self.pits.append(pit)
+                    break
+        
         self.player = (1, 1, 'E')
 
     def __str__(self):
         escena = [''] * 16
         coords = lambda x, y: x + 4 * (4 - y) - 1
 
-        escena[coords(self.wumpus[0], self.wumpus[1])] += 'W'
+        if self.wumpus[2]:  # Solo dibujar el Wumpus si está vivo
+            escena[coords(self.wumpus[0], self.wumpus[1])] += 'W'
         escena[coords(self.gold[0], self.gold[1])] += 'G'
         for p in self.pits:
             escena[coords(p[0], p[1])] += 'P'
@@ -112,6 +125,11 @@ class Escenario:
                 pos = self.player[1]
                 pos -= 1
                 self.player = (self.player[0], pos, dir)
+        
+        # Si el jugador avanza a la posición del Wumpus muerto
+        if self.player[0] == self.wumpus[0] and self.player[1] == self.wumpus[1] and not self.wumpus[2]:
+            estado = None
+        
         return estado
 
     def sense(self):
@@ -125,7 +143,7 @@ class Escenario:
         brillo_scent = False
 
         for pos in surroundings:
-            if pos == self.wumpus:
+            if pos == self.wumpus[:2] and self.wumpus[2]:  # Comprobar si el Wumpus está vivo
                 wumpus_scent = True
             if pos in self.pits:
                 wind_scent = True
@@ -144,16 +162,21 @@ class Escenario:
 
     def disparar(self):
         self.puntuacion -= 9
-        if (self.player[2] == 'N' and self.player[1] < self.wumpus[1]) or \
-           (self.player[2] == 'S' and self.player[1] > self.wumpus[1]) or \
-           (self.player[2] == 'E' and self.player[0] < self.wumpus[0]) or \
-           (self.player[2] == 'O' and self.player[0] > self.wumpus[0]):
-            return ""
+        player_x, player_y, player_dir = self.player
+        wumpus_x, wumpus_y = self.wumpus[:2]
+
+        # Verificar si el jugador está mirando hacia el Wumpus
+        if ((player_dir == 'N' and player_y < wumpus_y) or
+            (player_dir == 'S' and player_y > wumpus_y) or
+            (player_dir == 'E' and player_x < wumpus_x) or
+            (player_dir == 'O' and player_x > wumpus_x)):
+            self.wumpus = (wumpus_x, wumpus_y, False)  # El Wumpus muere
+            return "Rugido"  # El disparo alcanza al Wumpus
         else:
-            return "Rugido"
+            return ""  # El disparo no alcanza al Wumpus
 
     def perdi(self):
-        if self.player[0] == self.wumpus[0] and self.player[1] == self.wumpus[1]:
+        if self.player[0] == self.wumpus[0] and self.player[1] == self.wumpus[1] and self.wumpus[2]:
             return True
         for pit in self.pits:
             if self.player[0] == pit[0] and self.player[1] == pit[1]:
@@ -174,13 +197,14 @@ class Escenario:
             if self.gold[2]:
                 if self.player[0] == 1 and self.player[1] == 1:
                     self.puntuacion += 1000
-                    return 'Puntuacion: ' + str(self.puntuacion)
+                return 'Puntuacion: ' + str(self.puntuacion)
         elif a == 'Recoger':
             if not self.gold[2] and self.player[0] == self.gold[0] and self.player[1] == self.gold[1]:
-                self.gold[2] = True
-                return 'Oro levantado exitosamente'
+                self.gold = (self.gold[0], self.gold[1], True)  # Actualiza la tupla entera
+            return 'Oro levantado exitosamente'
         print(self)
         return self.sense()
+
 
 if __name__ == '__main__':
     Conexion()
