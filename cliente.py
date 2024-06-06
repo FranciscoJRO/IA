@@ -1,5 +1,5 @@
 import socket
-from pysat.solvers import Glucose3  # Importar Glucose3 para usar DPLL
+from pysat.solvers import Glucose3  # type: ignore # Importar Glucose3 para usar DPLL
 
 class AgenteInteligente:
     def __init__(self):
@@ -9,6 +9,7 @@ class AgenteInteligente:
         self.dir = 'E'
         self.acciones = []
         self.posicion_actual = (1, 1)  # Inicializar la posición actual
+        self.visitadas = set()  # Celdas visitadas
         self.conectarse()
         
         # Knowledge Base inicial
@@ -37,7 +38,8 @@ class AgenteInteligente:
     def init_knowledge_base(self):
         # Inicializar la base de conocimiento con el conocimiento inicial
         self.KB.append(self.encode_position(self.posicion_actual, "safe"))  # La celda inicial es segura
-        self.solver.add_clause([self.encode_position(self.posicion_actual, "safe")])
+        self.solver.add_clause([self.encode_position(self.posicion_actual, "safe")
+        ])
 
     def encode_position(self, pos, attribute):
         # Codificar la posición y el atributo en una proposición
@@ -104,13 +106,15 @@ class AgenteInteligente:
             
             # Selecciona la siguiente acción basada en celdas seguras
             for cell in safe_cells:
-                if cell not in self.acciones:
-                    self.acciones.append(cell)
+                if cell not in self.visitadas:
+                    self.visitadas.add(cell)
                     self.enviar_accion(f"Avanzar: {cell}")
                     self.posicion_actual = cell
                     break
+            else:
+                print("No hay más celdas seguras para moverse.")
+                break
 
 if __name__ == '__main__':
     agente = AgenteInteligente()
     agente.jugar()
-
