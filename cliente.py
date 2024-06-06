@@ -1,60 +1,116 @@
 import socket
-import tkinter as tk
-from tkinter import messagebox
+from pysat.solvers import Glucose3  # Importar Glucose3 para usar DPLL
 
-class WumpusClient:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Hunt the Wumpus")
-
-        self.host = 'localhost'  # Cambia esto si estás usando una IP específica
-        self.port = 65432
-
-        self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+class AgenteInteligente:
+    def __init__(self):
+        self.HOST = 'localhost'  # Cambia esto si estás usando una IP específica
+        self.PORT = 65432  # Puerto del servidor
+        self.percepciones = None
+        self.dir = 'E'
+        self.acciones = []
+        self.posicion_actual = (1, 1)  # Inicializar la posición actual
+        self.conectarse()
         
-        self.output_text = tk.Text(root, height=20, width=50, state='disabled')
-        self.output_text.pack()
+        # Knowledge Base inicial
+        self.KB = []
+        self.solver = Glucose3()
+        self.init_knowledge_base()
 
-        self.input_text = tk.Entry(root, width=50)
-        self.input_text.pack()
-        self.input_text.bind("<Return>", self.send_action)
-
-        self.send_button = tk.Button(root, text="Enviar", command=self.send_action)
-        self.send_button.pack()
-        
-        self.reset_button = tk.Button(root, text="Reiniciar", command=self.reset_game)
-        self.reset_button.pack()
-
-        self.connect_to_server()
-
-    def connect_to_server(self):
+    def conectarse(self):
         try:
-            self.conn.connect((self.host, self.port))
-            self.receive_data()
-        except ConnectionRefusedError:
-            messagebox.showerror("Error", "No se pudo conectar al servidor")
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((self.HOST, self.PORT))
+            self.percepciones = self.s.recv(1024).decode('utf-8')
+            print(f"Conectado al servidor y recibí: {self.percepciones}")
+        except Exception as e:
+            print(f"Error al conectar: {e}")
 
-    def reset_game(self):
-        self.conn.close()  # Cerrar la conexión existente
-        self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Crear un nuevo socket
-        self.output_text.config(state='normal')
-        self.output_text.delete(1.0, tk.END)  # Limpiar la ventana de salida
-        self.output_text.config(state='disabled')
-        self.connect_to_server()  # Reconectar al servidor
+    def enviar_accion(self, accion):
+        try:
+            self.s.sendall(accion.encode('utf-8'))
+            self.percepciones = self.s.recv(1024).decode('utf-8')
+            print(f"Recibido: {self.percepciones}")
+        except Exception as e:
+            print(f"Error al enviar acción: {e}")
+            self.percepciones = "Perdiste"
 
-    def send_action(self, event=None):
-        action = self.input_text.get()
-        self.conn.sendall(action.encode('utf-8'))
-        self.input_text.delete(0, tk.END)
-        self.receive_data()
+    def init_knowledge_base(self):
+        # Inicializar la base de conocimiento con el conocimiento inicial
+        self.KB.append(self.encode_position(self.posicion_actual, "safe"))  # La celda inicial es segura
+        self.solver.add_clause([self.encode_position(self.posicion_actual, "safe")])
 
-    def receive_data(self):
-        data = self.conn.recv(1024).decode('utf-8')
-        self.output_text.config(state='normal')
-        self.output_text.insert(tk.END, "Servidor: " + data + "\n")
-        self.output_text.config(state='disabled')
+    def encode_position(self, pos, attribute):
+        # Codificar la posición y el atributo en una proposición
+        x, y = pos
+        if attribute == "safe":
+            return x * 10 + y
+        elif attribute == "wumpus":
+            return -(x * 10 + y)
+        elif attribute == "pit":
+            return -(x * 10 + y + 100)
+
+    def update_knowledge_base(self, percepciones):
+        x, y = self.posicion_actual
+        if "Olor" in percepciones:
+            # Si hay olor, hay un wumpus cerca
+            self.solver.add_clause([self.encode_position((x+1, y), "wumpus")])
+            self.solver.add_clause([self.encode_position((x-1, y), "wumpus")])
+            self.solver.add_clause([self.encode_position((x, y+1), "wumpus")])
+            self.solver.add_clause([self.encode_position((x, y-1), "wumpus")])
+        if "Brisa" in percepciones:
+            # Si hay brisa, hay un pozo cerca
+            self.solver.add_clause([self.encode_position((x+1, y), "pit")])
+            self.solver.add_clause([self.encode_position((x-1, y), "pit")])
+            self.solver.add_clause([self.encode_position((x, y+1), "pit")])
+            self.solver.add_clause([self.encode_position((x, y-1), "pit")])
+        if "Brillo" in percepciones:
+            # Si hay brillo, hay oro en la celda actual
+            self.solver.add_clause([self.encode_position((x, y), "gold")])
+        if "No siento nada" in percepciones:
+            # Si no hay ninguna percepción, las celdas adyacentes son seguras
+            self.solver.add_clause([self.encode_position((x+1, y), "safe")])
+            self.solver.add_clause([self.encode_position((x-1, y), "safe")])
+            self.solver.add_clause([self.encode_position((x, y+1), "safe")])
+            self.solver.add_clause([self.encode_position((x, y-1), "safe")])
+
+    def deduce_safe_cells(self):
+        safe_cells = []
+        for x in range(1, 5):
+            for y in range(1, 5):
+                if self.solver.solve(assumptions=[self.encode_position((x, y), "safe")]):
+                    safe_cells.append((x, y))
+        return safe_cells
+
+    def jugar(self):
+        while True:
+            if not self.percepciones:
+                print("No se recibieron percepciones.")
+                break
+
+            percepciones = self.percepciones.split()
+            if "Perdiste" in percepciones:
+                print("He perdido el juego.")
+                break
+            if "¡Has" in percepciones:
+                print("He ganado el juego.")
+                break
+
+            # Actualizar la base de conocimiento con las nuevas percepciones
+            self.update_knowledge_base(percepciones)
+            
+            # Deduce celdas seguras
+            safe_cells = self.deduce_safe_cells()
+            print(f"Celdas seguras deducidas: {safe_cells}")
+            
+            # Selecciona la siguiente acción basada en celdas seguras
+            for cell in safe_cells:
+                if cell not in self.acciones:
+                    self.acciones.append(cell)
+                    self.enviar_accion(f"Avanzar: {cell}")
+                    self.posicion_actual = cell
+                    break
 
 if __name__ == '__main__':
-    root = tk.Tk()
-    app = WumpusClient(root)
-    root.mainloop()
+    agente = AgenteInteligente()
+    agente.jugar()
+
