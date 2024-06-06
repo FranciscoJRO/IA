@@ -8,14 +8,15 @@ class Servidor:
         self.condiciones_iniciales()
 
     def condiciones_iniciales(self):
-        # Definir las condiciones iniciales del juego
         self.juego_terminado = False
-        self.mensaje_inicial = "No siento nada"  # Mensaje inicial para el cliente
+        self.mensaje_inicial = "No siento nada"
         self.mensajes = {
             "inicial": self.mensaje_inicial,
             "perdiste": "Perdiste",
-            "ganaste": "¡Has ganado!"
+            "ganaste": "¡Has ganado!",
+            "oro": "Has encontrado el oro"
         }
+        self.posicion_oro = (4, 4)  # Suponiendo que el oro está en (4, 4)
 
     def manejar_cliente(self, conexion, direccion):
         print(f"Conectado a {direccion}")
@@ -29,10 +30,14 @@ class Servidor:
             
             # Procesar la acción recibida
             if datos.startswith("Avanzar"):
-                # Lógica de procesamiento de la acción
-                if "ganar" in datos:
+                # Extraer la posición a la que se quiere avanzar
+                _, pos_str = datos.split(": ")
+                pos = tuple(map(int, pos_str.strip("()").split(", ")))
+                
+                # Verificar si la posición contiene el oro
+                if pos == self.posicion_oro:
                     self.juego_terminado = True
-                    conexion.sendall(self.mensajes["ganaste"].encode('utf-8'))
+                    conexion.sendall(self.mensajes["oro"].encode('utf-8'))
                 else:
                     conexion.sendall(self.mensaje_inicial.encode('utf-8'))
             else:

@@ -38,8 +38,7 @@ class AgenteInteligente:
     def init_knowledge_base(self):
         # Inicializar la base de conocimiento con el conocimiento inicial
         self.KB.append(self.encode_position(self.posicion_actual, "safe"))  # La celda inicial es segura
-        self.solver.add_clause([self.encode_position(self.posicion_actual, "safe")
-        ])
+        self.solver.add_clause([self.encode_position(self.posicion_actual, "safe")])
 
     def encode_position(self, pos, attribute):
         # Codificar la posición y el atributo en una proposición
@@ -50,6 +49,8 @@ class AgenteInteligente:
             return -(x * 10 + y)
         elif attribute == "pit":
             return -(x * 10 + y + 100)
+        elif attribute == "gold":
+            return x * 10 + y + 200
 
     def update_knowledge_base(self, percepciones):
         x, y = self.posicion_actual
@@ -83,6 +84,14 @@ class AgenteInteligente:
                     safe_cells.append((x, y))
         return safe_cells
 
+    def deduce_gold_cells(self):
+        gold_cells = []
+        for x in range(1, 5):
+            for y in range(1, 5):
+                if self.solver.solve(assumptions=[self.encode_position((x, y), "gold")]):
+                    gold_cells.append((x, y))
+        return gold_cells
+
     def jugar(self):
         while True:
             if not self.percepciones:
@@ -93,7 +102,7 @@ class AgenteInteligente:
             if "Perdiste" in percepciones:
                 print("He perdido el juego.")
                 break
-            if "¡Has" in percepciones:
+            if "oro" in percepciones:
                 print("He ganado el juego.")
                 break
 
@@ -104,16 +113,29 @@ class AgenteInteligente:
             safe_cells = self.deduce_safe_cells()
             print(f"Celdas seguras deducidas: {safe_cells}")
             
-            # Selecciona la siguiente acción basada en celdas seguras
-            for cell in safe_cells:
-                if cell not in self.visitadas:
-                    self.visitadas.add(cell)
-                    self.enviar_accion(f"Avanzar: {cell}")
-                    self.posicion_actual = cell
-                    break
+            # Deduce celdas con oro
+            gold_cells = self.deduce_gold_cells()
+            print(f"Celdas con oro deducidas: {gold_cells}")
+
+            if gold_cells:
+                # Si se deducen celdas con oro, moverse hacia ellas
+                for cell in gold_cells:
+                    if cell not in self.visitadas:
+                        self.visitadas.add(cell)
+                        self.enviar_accion(f"Avanzar: {cell}")
+                        self.posicion_actual = cell
+                        break
             else:
-                print("No hay más celdas seguras para moverse.")
-                break
+                # Selecciona la siguiente acción basada en celdas seguras
+                for cell in safe_cells:
+                    if cell not in self.visitadas:
+                        self.visitadas.add(cell)
+                        self.enviar_accion(f"Avanzar: {cell}")
+                        self.posicion_actual = cell
+                        break
+                else:
+                    print("No hay más celdas seguras para moverse.")
+                    break
 
 if __name__ == '__main__':
     agente = AgenteInteligente()
